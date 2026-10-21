@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scientific Calculator Utility</title>
+    <style>
+        :root {
+            --bg-color: #f3f4f6;
+            --calc-bg: #1f2937;
+            --btn-gray: #4b5563;
+            --btn-orange: #f97316;
+            --display-bg: #111827;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Container Layers */
+        .wrapper {
+            width: 100%;
+            max-width: 360px;
+            padding: 10px;
+        }
+
+        #calc-view {
+            display: block;
+        }
+
+        #game-view {
+            display: none;
+            background-color: #0f172a;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            color: #ffffff;
+        }
+
+        /* Calculator Styles */
+        .calculator {
+            background-color: var(--calc-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .calc-header {
+            color: #9ca3af;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .display {
+            background-color: var(--display-bg);
+            color: #10b981;
+            font-family: monospace;
+            font-size: 2rem;
+            text-align: right;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            border: 1px solid #374151;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        button {
+            border: none;
+            padding: 18px;
+            font-size: 1.25rem;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.1s;
+            color: white;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-func { background-color: #374151; }
+        .btn-func:hover { background-color: #4b5563; }
+        
+        .btn-num { background-color: var(--btn-gray); }
+        .btn-num:hover { background-color: #6b7280; }
+
+        .btn-op { background-color: var(--btn-orange); }
+        .btn-op:hover { background-color: #ea580c; }
+
+        /* Game Styles */
+        canvas {
+            background-color: #020617;
+            display: block;
+            margin: 15px auto;
+            border: 2px solid #334155;
+            border-radius: 4px;
+        }
+
+        .score {
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #10b981;
+            margin-bottom: 5px;
+        }
+
+        .instructions {
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wrapper">
+        
+        <!-- LAYER 1: THE DISGUISE (CALCULATOR) -->
+        <div id="calc-view">
+            <div class="calculator">
+                <div class="calc-header">MathEngine v2.4</div>
+                <div id="calc-display" class="display">0</div>
+                <div class="grid">
+                    <button class="btn-func" onclick="pressClear()">C</button>
+                    <button class="btn-func" onclick="pressOp('(')">(</button>
+                    <button class="btn-func" onclick="pressOp(')')">)</button>
+                    <button class="btn-op" onclick="pressOp('/')">/</button>
+
+                    <button class="btn-num" onclick="pressNum('7')">7</button>
+                    <button class="btn-num" onclick="pressNum('8')">8</button>
+                    <button class="btn-num" onclick="pressNum('9')">9</button>
+                    <button class="btn-op" onclick="pressOp('*')">×</button>
+
+                    <button class="btn-num" onclick="pressNum('4')">4</button>
+                    <button class="btn-num" onclick="pressNum('5')">5</button>
+                    <button class="btn-num" onclick="pressNum('6')">6</button>
+                    <button class="btn-op" onclick="pressOp('-')">-</button>
+
+                    <button class="btn-num" onclick="pressNum('1')">1</button>
+                    <button class="btn-num" onclick="pressNum('2')">2</button>
+                    <button class="btn-num" onclick="pressNum('3')">3</button>
+                    <button class="btn-op" onclick="pressOp('+')">+</button>
+
+                    <button class="btn-num" onclick="pressNum('0')">0</button>
+                    <button class="btn-num" onclick="pressNum('.')">.</button>
+                    <button class="btn-func" onclick="pressBack()">⌫</button>
+                    <button class="btn-op" onclick="pressEquals()">=</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LAYER 2: THE STEALTH GAME (SNAKE) -->
+        <div id="game-view">
+            <div class="score">SCORE: <span id="score-val">0</span></div>
+            <canvas id="gameCanvas" width="300" height="300"></canvas>
+            <div class="instructions">
+                Use <b>Arrow Keys</b> to steer.<br>
+                Press <b>ESC</b> to instantly lock and return to calculator.
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CALCULATOR ENGINE & CONCEALMENT MECHANIC ---
+        let currentInput = "";
+        const secretCode = "2026";
+
+        function updateDisplay(val) {
+            const display = document.getElementById("calc-display");
+            display.innerText = val === "" ? "0" : val;
+        }
+
+        function pressNum(num) {
+            currentInput += num;
+            updateDisplay(currentInput);
+        }
+
+        function pressOp(op) {
+            if (currentInput === "" && op !== "(") return;
+            currentInput += op;
+            updateDisplay(currentInput);
+        }
+
+        function pressBack() {
+            currentInput = currentInput.slice(0, -1);
+            updateDisplay(currentInput);
+        }
+
+        function pressClear() {
+            // TRIGGER CHECK: If user entered '2026' and hits 'C', unlock game
+            if (currentInput === secretCode) {
+                unlockGame();
+            } else {
+                currentInput = "";
+                updateDisplay(currentInput);
+            }
+        }
+
+        function pressEquals() {
+            try {
+                if (currentInput === "") return;
+                let result = Function(`"use strict"; return (${currentInput})`)();
+                currentInput = String(result);
+                updateDisplay(currentInput);
+            } catch (e) {
+                updateDisplay("Error");
+                currentInput = "";
+            }
+        }
+
+        function unlockGame() {
+            document.getElementById("calc-view").style.display = "none";
+            document.getElementById("game-view").style.display = "block";
+            initSnakeGame();
+        }
+
+        function lockGame() {
+            stopSnakeGame();
+            document.getElementById("game-view").style.display = "none";
+            document.getElementById("calc-view").style.display = "block";
+            currentInput = "";
+            updateDisplay("");
+        }
+
+        // --- HIDDEN SNAKE GAME ENGINE ---
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const grid = 15;
+        let count = 0;
+        let score = 0;
+        let gameLoopId = null;
+
+        let snake = {
+            x: 150,
+            y: 150,
+            dx: grid,
+            dy: 0,
+            cells: [],
+            maxCells: 4
+        };
+
+        let apple = { x: 90, y: 90 };
+
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min)) + min;
+        }
+
+        function respawnApple() {
+            apple.x = getRandomInt(0, 20) * grid;
+            apple.y = getRandomInt(0, 20) * grid;
+        }
+
+        function resetSnake() {
+            snake.x = 150;
+            snake.y = 150;
+            snake.cells = [];
+            snake.maxCells = 4;
+            snake.dx = grid;
+            snake.dy = 0;
+            score = 0;
+            document.getElementById("score-val").innerText = score;
+            respawnApple();
+        }
+
+        function snakeLoop() {
+            gameLoopId = requestAnimationFrame(snakeLoop);
+
+            // Throttle game speed down from 60fps to roughly 10fps
+            if (++count < 6) {
+                return;
+            }
+            count = 0;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Move snake
+            snake.x += snake.dx;
+            snake.y += snake.dy;
+
+            // Wrap snake position horizontally and vertically on edges
+            if (snake.x < 0) snake.x = canvas.width - grid;
+            else if (snake.x >= canvas.width) snake.x = 0;
+            
+            if (snake.y < 0) snake.y = canvas.height - grid;
+            else if (snake.y >= canvas.height) snake.y = 0;
+
+            // Keep track of where snake has been
+            snake.cells.unshift({x: snake.x, y: snake.y});
+
+            // Remove tail cells as we move forward
+            if (snake.cells.length > snake.maxCells) {
+                snake.cells.pop();
+            }
+
+            // Draw apple
+            ctx.fillStyle = '#f87171';
+            ctx.fillRect(apple.x, apple.y, grid - 1, grid - 1);
+
+            // Draw snake
+            ctx.fillStyle = '#10b981';
+            snake.cells.forEach((cell, index) => {
+                ctx.fillRect(cell.x, cell.y, grid - 1, grid - 1);
+
+                // Check apple collision
+                if (cell.x === apple.x && cell.y === apple.y) {
+                    snake.maxCells++;
+                    score += 10;
+                    document.getElementById("score-val").innerText = score;
+                    respawnApple();
+                }
+
+                // Check self-collision (collision with any trailing segment)
+                for (let i = index + 1; i < snake.cells.length; i++) {
+                    if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+                        resetSnake();
+                    }
+                }
+            });
+        }
+
+        function initSnakeGame() {
+            resetSnake();
+            if (!gameLoopId) {
+                count = 0;
+                gameLoopId = requestAnimationFrame(snakeLoop);
+            }
+        }
+
+        function stopSnakeGame() {
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+        }
+
+        // Keyboard Controls & Panic Hotkey
+        window.addEventListener("keydown", (e) => {
+            // Panic key: Escape closes game instantly
+            if (e.key === "Escape") {
+                lockGame();
+                return;
+            }
+
+            // Arrow controls (prevent window scrolling)
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+                e.preventDefault();
+            }
+
+            // Prevent 180-degree immediate turns
+            if (e.key === "ArrowLeft" && snake.dx === 0) {
+                snake.dx = -grid;
+                snake.dy = 0;
+            } else if (e.key === "ArrowUp" && snake.dy === 0) {
+                snake.dy = -grid;
+                snake.dx = 0;
+            } else if (e.key === "ArrowRight" && snake.dx === 0) {
+                snake.dx = grid;
+                snake.dy = 0;
+            } else if (e.key === "ArrowDown" && snake.dy === 0) {
+                snake.dy = grid;
+                snake.dx = 0;
+            }
+        });
+    </script>
+</body>
+          </html>
